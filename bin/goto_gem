@@ -1,0 +1,28 @@
+#!/usr/bin/env ruby
+
+require 'readline'
+require 'nokogiri'
+require 'open-uri'
+
+gem_version_map = Hash[`gem list`.split("\n").map{|i| i.match /^(.*)\((.*)\)$/}.map{|m| [m[1].strip,m[2].strip]}]
+comp = proc { |s| gem_version_map.keys.grep(/^#{Regexp.escape(s)}/) }
+Readline.completion_proc = comp
+gem_name = Readline.readline("Enter name > ", true).strip
+version = gem_version_map[gem_name]
+puts "Nothing found!" and exit if version.nil?
+m = Nokogiri::HTML(open("http://rubygems.org/gems/#{gem_name}"))
+  .css(".meta .links a")
+  .map{|a| a.attribute("href").value.match(/github\.com\/(\S*)\/(\S*)/) }
+  .compact
+  .first
+puts "Nothing found!" and exit if m.nil?
+links = ["https://github.com/#{m[1]}/#{m[2]}/tree/v#{version}", "http://rdoc.info/gems/#{gem_name}/#{version}/frames"]
+links.each do |link|
+  if RbConfig::CONFIG['host_os'] =~ /mswin|mingw|cygwin/
+    system "start #{link}"
+  elsif RbConfig::CONFIG['host_os'] =~ /darwin/
+    system "open #{link}"
+  elsif RbConfig::CONFIG['host_os'] =~ /linux|bsd/
+    system "xdg-open #{link}"
+  end
+end
